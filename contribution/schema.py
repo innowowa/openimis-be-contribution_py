@@ -6,7 +6,6 @@ from .apps import ContributionConfig
 from location.apps import LocationConfig
 from django.utils.translation import gettext as _
 from core.schema import signal_mutation_module_before_mutating, OrderedDjangoFilterConnectionField, filter_validity
-from core.services import wait_for_mutation
 # We do need all queries and mutations in the namespace here.
 from .gql_queries import *  # lgtm [py/polluting-import]
 from .gql_mutations import *  # lgtm [py/polluting-import]
@@ -104,7 +103,6 @@ class Query(graphene.ObjectType):
         if payer_id:
             filters.append(Q(payer__id=payer_id))
         if client_mutation_id:
-            wait_for_mutation(client_mutation_id)
             filters.append(Q(mutations__mutation__client_mutation_id=client_mutation_id))
         show_history = kwargs.get('show_history', False)
         if not show_history and not kwargs.get('uuid', None):

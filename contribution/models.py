@@ -4,7 +4,7 @@ from core import fields
 from core import models as core_models
 from django.db import models
 from django.utils.translation import gettext_lazy
-
+from django.db import transaction
 from core.datetimes.ad_datetime import datetime
 from policy.models import Policy
 from payer.models import Payer
@@ -38,8 +38,8 @@ class Premium(core_models.VersionedModel):
     receipt = models.CharField(db_column="Receipt", max_length=50)
     pay_date = fields.DateField(db_column="PayDate")
     pay_type = models.CharField(
-        db_column="PayType", max_length=1
-    )  # , choices=PayTypeChoices.choices
+        db_column="PayType", max_length=1,
+    default='Cash')  # , choices=PayTypeChoices.choices
     is_photo_fee = models.BooleanField(
         db_column="isPhotoFee", blank=True, null=True, default=False
     )
@@ -85,3 +85,27 @@ class PremiumMutation(core_models.UUIDModel, core_models.ObjectMutation):
     class Meta:
         managed = True
         db_table = "contribution_PremiumMutation"
+
+#AUTO GENERATE RECEIPT NUMBER HERE INNOCENT
+
+class Receipt(models.Model):
+    receipt = models.CharField(max_length=20, unique=True)
+
+    @staticmethod
+    def generate_receipt_number():
+        last_receipt = Premium.objects.all().order_by('id').last()
+        if not last_receipt:
+            return 'R000001'
+        receipt_number = last_receipt.receipt
+        receipt_int = int(receipt_number[1:]) + 1
+        new_receipt_number = 'R' + str(receipt_int).zfill(6)
+        return new_receipt_number
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        if not self.receipt_number:
+            while True:
+                self.receipt_number = self.generate_receipt_number()
+                if not Receipt.objects.filter(receipt_number=self.receipt_number).exists():
+                    break
+        super(Receipt, self).save(*args, **kwargs)
